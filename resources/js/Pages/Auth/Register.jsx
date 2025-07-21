@@ -11,6 +11,7 @@ export default function Register() {
         email: '',
         password: '',
         password_confirmation: '',
+        role: 'member',
     });
 
     const submit = (e) => {
@@ -101,7 +102,21 @@ export default function Register() {
                         className="mt-2"
                     />
                 </div>
+                <div>
+                    <InputLabel htmlFor="role" value="Role" />
 
+                    <select
+  name="role"
+  value={data.role}
+  onChange={(e) => setData('role', e.target.value)}
+  className="mt-1 block w-full"
+>
+  <option value="member">Member</option>
+  <option value="admin">Admin</option>
+</select>
+{errors.role && <p className="text-red-500 text-sm">{errors.role}</p>}
+
+                </div>
                 <div className="mt-4 flex items-center justify-end">
                     <Link
                         href={route('login')}

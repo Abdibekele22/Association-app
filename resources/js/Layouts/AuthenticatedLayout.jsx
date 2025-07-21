@@ -4,9 +4,10 @@ import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import { LayoutDashboard as DashboardIcon } from 'lucide-react';
 
 export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
+    const user = usePage().props.auth;
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
@@ -22,7 +23,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                     <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
                                 </Link>
                             </div>
-
+                           
+<nav>
+    <Link href="/dashboard" className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100">
+        <DashboardIcon className="w-5 h-5" />
+        <span className="ml-3">Dasrd</span>
+    </Link>
+    {/* Other links... */}
+</nav>
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink
                                     href={route('dashboard')}
@@ -137,14 +145,6 @@ export default function AuthenticatedLayout({ header, children }) {
                     </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4">
-                        <div className="px-4">
-                            <div className="text-base font-medium text-gray-800">
-                                {user.name}
-                            </div>
-                            <div className="text-sm font-medium text-gray-500">
-                                {user.email}
-                            </div>
-                        </div>
 
                         <div className="mt-3 space-y-1">
                             <ResponsiveNavLink href={route('profile.edit')}>
