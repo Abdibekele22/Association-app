@@ -10,54 +10,52 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // First verify we have any payments at all
-        if (!MonthlyPayment::exists()) {
-            return Inertia::render('Dashboard', [
-                'warning' => 'No payment data found in system',
-                // ... other empty defaults
-            ]);
-        }
+        // Calculate totals
+        $totals = [
+            'capital' => (float)MonthlyPayment::where('status', 'paid')->sum('amount') ?: 0,
+            'collectedFines' => (float)MonthlyPayment::sum('fine') ?: 0,
+            'pendingPayments' => (float)MonthlyPayment::where('status', 'pending')->sum('amount') ?: 0,
+            'latePayments' => (float)MonthlyPayment::where('status', 'late')->sum('amount') ?: 0
+        ];
     
-        // Get all distinct status values for debugging
-        $statuses = MonthlyPayment::pluck('status')->unique();
-        
-        // Calculate totals - adjust status checks based on your actual status values
-        $monthlyTotal = MonthlyPayment::whereIn('status', ['paid', 'completed'])->sum('amount');
-        $fines = MonthlyPayment::whereNotNull('fine')->sum('fine'); // Alternative if no status column
-        
-        // Get recent payments with user data
+        // Get recent payments
         $recentPayments = MonthlyPayment::with('user')
-            ->orderBy('created_at', 'desc')
+            ->latest()
             ->take(5)
-            ->get();
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'amount' => (float)$payment->amount,
+                    'status' => $payment->status,
+                    'user' => $payment->user?->name ?? 'N/A',
+                    'created_at' => $payment->created_at->toDateTimeString()
+                ];
+            });
     
-        // Generate chart data
+        // Fixed payment trends query
         $paymentData = MonthlyPayment::select(
                 DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
-                DB::raw("SUM(amount) as total")
+                DB::raw("SUM(amount) as amount"),
+                DB::raw("SUM(fine) as fines")
             )
-            ->groupBy('month')
+            ->groupBy(DB::raw("DATE_FORMAT(created_at, '%Y-%m')"))
             ->orderBy('month')
             ->get();
     
-        $labels = $paymentData->pluck('month')->map(fn($m) => \Carbon\Carbon::parse($m)->format('M Y'));
-        $amounts = $paymentData->pluck('total');
-    
         return Inertia::render('Dashboard', [
-            'totalCapital' => $monthlyTotal,
-            'monthlyTotal' => $monthlyTotal,
-            'occasionalTotal' => 0,
-            'fines' => $fines,
-            'recentPayments' => ['monthly' => $recentPayments],
+            'totals' => $totals,
+            'recentPayments' => $recentPayments,
             'paymentTrends' => [
-                'labels' => $labels,
-                'monthly' => $amounts,
-                'occasional' => [],
+                'labels' => $paymentData->pluck('month')->all(),
+                'amounts' => $paymentData->pluck('amount')->map(fn ($v) => (float)$v)->all(),
+                'fines' => $paymentData->pluck('fines')->map(fn ($v) => (float)$v)->all()
             ],
-            'debug' => [ // Temporary debugging info
-                'statuses' => $statuses,
-                'first_payment' => MonthlyPayment::first(),
-            ],
+            'statusSummary' => [
+                'paid' => (int)MonthlyPayment::where('status', 'paid')->count(),
+                'pending' => (int)MonthlyPayment::where('status', 'pending')->count(),
+                'late' => (int)MonthlyPayment::where('status', 'late')->count()
+            ]
         ]);
     }
 }

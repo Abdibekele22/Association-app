@@ -16,14 +16,51 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
+// routes/web.php
+Route::get('/debug-inertia-dashboard', function() {
+    $controller = new App\Http\Controllers\DashboardController();
+    return $controller->index();
+});
+Route::get('/debug-dashboard-data', function() {
+    // Calculate totals
+    $data = [
+        'paidTotal' => (float)\App\Models\MonthlyPayment::where('status', 'paid')->sum('amount'),
+        'finesTotal' => (float)\App\Models\MonthlyPayment::sum('fine'),
+        'pendingTotal' => (float)\App\Models\MonthlyPayment::where('status', 'pending')->sum('amount'),
+        'lateTotal' => (float)\App\Models\MonthlyPayment::where('status', 'late')->sum('amount'),
+        'recentPayments' => \App\Models\MonthlyPayment::with('user')
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'amount' => (float)$payment->amount,
+                    'status' => $payment->status,
+                    'user' => $payment->user ? $payment->user->name : null
+                ];
+            }),
+        'statusCounts' => [
+            'paid' => \App\Models\MonthlyPayment::where('status', 'paid')->count(),
+            'pending' => \App\Models\MonthlyPayment::where('status', 'pending')->count(),
+            'late' => \App\Models\MonthlyPayment::where('status', 'late')->count()
+        ]
+    ];
 
+    return response()->json($data);
+});
+Route::get('/test-dashboard', function() {
+    $controller = new \App\Http\Controllers\MonthlyPaymentController();
+    return $controller->index();
+});
 Route::get('/debug-payments', function() {
     return [
-        'all_payments' => App\Models\MonthlyPayment::all(),
-        'count' => App\Models\MonthlyPayment::count(),
-        'status_values' => App\Models\MonthlyPayment::distinct()->pluck('status'),
-        'sum_amount' => App\Models\MonthlyPayment::sum('amount'),
-        // 'sum_fine' => App\Models\MonthlyPayment::sum('fine'),
+        'all_payments' => \App\Models\MonthlyPayment::all(),
+        'paid_payments' => \App\Models\MonthlyPayment::where('status', 'paid')->get(),
+        'sum_amount' => \App\Models\MonthlyPayment::sum('amount'),
+        'status_counts' => \App\Models\MonthlyPayment::groupBy('status')
+                             ->selectRaw('status, count(*) as count')
+                             ->get()
     ];
 });
 // routes/web.php
@@ -88,12 +125,12 @@ Route::get('/debug-payments', function() {
 Route::get('/dashboard', [AdminController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 Route::middleware('auth')->group(function () {
     
-    Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.dashboard');
-    Route::get('/monthly-payments', [MonthlyPaymentController::class, 'index'])->name('monthly-payments.index');
-    Route::post('/monthly-payments', [MonthlyPaymentController::class, 'store'])->name('monthly-payments.store');
-    Route::get('/monthly-payments/{payment}/edit', [MonthlyPaymentController::class, 'edit'])->name('monthly-payments.edit');
-    Route::put('/monthly-payments/{payment}', [MonthlyPaymentController::class, 'update'])->name('monthly-payments.update');
-    Route::delete('/monthly-payments/{payment}', [MonthlyPaymentController::class, 'destroy'])->name('monthly-payments.destroy');
+    Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('admin.dashboard');
+    Route::get('/monthly-payments', [MonthlyPaymentController::class, 'index'])->middleware(['auth'])->name('monthly-payments.index');
+    Route::post('/monthly-payments', [MonthlyPaymentController::class, 'store'])->middleware(['auth', 'verified'])->name('monthly-payments.store');
+    Route::get('/monthly-payments/{payment}/edit', [MonthlyPaymentController::class, 'edit'])->middleware(['auth', 'verified'])->name('monthly-payments.edit');
+    Route::put('/monthly-payments/{payment}', [MonthlyPaymentController::class, 'update'])->middleware(['auth', 'verified'])->name('monthly-payments.update');
+    Route::delete('/monthly-payments/{payment}', [MonthlyPaymentController::class, 'destroy'])->middleware(['auth', 'verified'])->name('monthly-payments.destroy');
 
     // profile routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
